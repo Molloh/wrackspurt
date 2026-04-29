@@ -1,0 +1,28 @@
+{
+  "name": "wrackspurt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight NotebookLM coworker agent",
+  "scripts": {
+    "dev": "pnpm --filter @wrackspurt/web dev",
+    "desktop": "pnpm --filter @wrackspurt/desktop dev",
+    "desktop:build": "pnpm --filter @wrackspurt/desktop build",
+    "build": "pnpm -r --filter \"!@wrackspurt/desktop\" build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "pnpm -r exec rimraf dist .next .turbo"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
