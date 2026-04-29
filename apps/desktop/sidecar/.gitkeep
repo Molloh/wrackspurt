@@ -1,0 +1,5 @@
+This directory is populated by `apps/desktop/scripts/build-sidecar.mjs`
+during the production Tauri build. The placeholder `.gitkeep` exists only
+so that `bundle.resources: ["../sidecar/**/*"]` in `tauri.conf.json`
+matches at least one file even on a fresh clone, which Tauri's build
+script otherwise treats as a fatal error during `tauri dev`.

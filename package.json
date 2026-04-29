@@ -2,7 +2,7 @@
   "name": "wrackspurt",
   "version": "0.1.0",
   "private": true,
-  "description": "Lightweight NotebookLM coworker agent",
+  "description": "Workspace-scoped AI co-worker",
   "scripts": {
     "dev": "pnpm --filter @wrackspurt/web dev",
     "desktop": "pnpm --filter @wrackspurt/desktop dev",

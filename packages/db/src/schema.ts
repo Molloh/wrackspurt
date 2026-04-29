@@ -1,79 +1,53 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const projects = sqliteTable("projects", {
-  id: text("id").primaryKey(),
+/**
+ * A workspace is a folder on the user's machine. We store recents +
+ * lastOpened so the launcher can show "Open recent" without scanning.
+ */
+export const workspaces = sqliteTable("workspaces", {
+  /** Absolute path is the natural key. */
+  path: text("path").primaryKey(),
   name: text("name").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-export const notebooks = sqliteTable("notebooks", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  externalNotebookId: text("external_notebook_id").notNull(),
-  title: text("title").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-export const sources = sqliteTable("sources", {
-  id: text("id").primaryKey(),
-  notebookId: text("notebook_id")
-    .notNull()
-    .references(() => notebooks.id, { onDelete: "cascade" }),
-  externalSourceId: text("external_source_id"),
-  name: text("name").notNull(),
-  type: text("type", { enum: ["file", "url", "text", "youtube", "drive"] }).notNull(),
-  status: text("status", { enum: ["pending", "syncing", "ready", "failed"] })
-    .notNull()
-    .default("pending"),
-  createdAt: integer("created_at", { mode: "timestamp" })
+  lastOpenedAt: integer("last_opened_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 });
 
 export const chatMessages = sqliteTable("chat_messages", {
   id: text("id").primaryKey(),
-  notebookId: text("notebook_id")
-    .notNull()
-    .references(() => notebooks.id, { onDelete: "cascade" }),
-  role: text("role", { enum: ["user", "assistant"] }).notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  role: text("role", { enum: ["user", "assistant", "system"] }).notNull(),
   content: text("content").notNull(),
-  citationsJson: text("citations_json"),
+  metaJson: text("meta_json"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 });
 
-export const tasks = sqliteTable("tasks", {
+export const skillRuns = sqliteTable("skill_runs", {
   id: text("id").primaryKey(),
-  notebookId: text("notebook_id")
-    .notNull()
-    .references(() => notebooks.id, { onDelete: "cascade" }),
-  type: text("type", {
-    enum: ["sync_source", "ask", "summarize", "generate_artifact"],
-  }).notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  skillId: text("skill_id").notNull(),
+  prompt: text("prompt").notNull(),
+  constraintsJson: text("constraints_json"),
   status: text("status", {
-    enum: ["queued", "running", "completed", "failed"],
+    enum: ["pending", "running", "completed", "failed", "cancelled"],
   })
     .notNull()
-    .default("queued"),
-  resultJson: text("result_json"),
+    .default("pending"),
+  output: text("output"),
+  artifactsJson: text("artifacts_json"),
   error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  finishedAt: integer("finished_at", { mode: "timestamp" }),
 });
 
 /**
- * Generic key/value settings store. Sensitive values (API keys, cookies)
- * are flagged with `secret = 1` so the API layer can redact them on read.
- * The desktop build should replace plaintext storage with the OS keyring.
+ * Generic key/value settings. Sensitive values (API keys) are flagged
+ * with `secret = 1` so the API layer redacts them on read.
  */
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),

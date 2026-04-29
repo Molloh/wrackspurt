@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1777447318607,
-      "tag": "0000_medical_rumiko_fujikawa",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1777449524351,
-      "tag": "0001_settings",
+      "when": 1777470818093,
+      "tag": "0000_oval_energizer",
       "breakpoints": true
     }
   ]

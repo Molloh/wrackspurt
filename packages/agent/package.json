@@ -8,13 +8,17 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@wrackspurt/core": "workspace:*",
-    "@wrackspurt/models": "workspace:*"
+    "@mariozechner/pi-agent-core": "^0.70.6",
+    "@mariozechner/pi-ai": "^0.70.6",
+    "typebox": "^1.1.24"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
   }
 }

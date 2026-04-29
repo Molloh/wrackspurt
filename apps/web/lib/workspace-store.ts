@@ -2,45 +2,45 @@
 
 import { create } from "zustand";
 
-export interface WorkspaceState {
-  notebookId: string | undefined;
-  notebookTitle: string | undefined;
-  selectNotebook: (notebookId: string, notebookTitle: string) => void;
-  clearNotebook: () => void;
-
-  /** Latest assistant citations, surfaced in the right rail. */
-  citations: Array<{ sourceId: string; sourceTitle?: string; snippet?: string }>;
-  setCitations: (
-    citations: Array<{ sourceId: string; sourceTitle?: string; snippet?: string }>,
-  ) => void;
-
-  /** Active task IDs to poll. */
-  activeTaskIds: string[];
-  addTask: (taskId: string) => void;
-  removeTask: (taskId: string) => void;
+export interface ActiveWorkspace {
+  path: string;
+  name: string;
 }
 
-export const useWorkspace = create<WorkspaceState>((set) => ({
-  notebookId: undefined,
-  notebookTitle: undefined,
-  citations: [],
-  activeTaskIds: [],
-  selectNotebook: (notebookId, notebookTitle) =>
-    set({ notebookId, notebookTitle, citations: [], activeTaskIds: [] }),
-  clearNotebook: () =>
-    set({
-      notebookId: undefined,
-      notebookTitle: undefined,
-      citations: [],
-      activeTaskIds: [],
-    }),
-  setCitations: (citations) => set({ citations }),
-  addTask: (taskId) =>
-    set((s) => ({
-      activeTaskIds: s.activeTaskIds.includes(taskId)
-        ? s.activeTaskIds
-        : [...s.activeTaskIds, taskId],
-    })),
-  removeTask: (taskId) =>
-    set((s) => ({ activeTaskIds: s.activeTaskIds.filter((id) => id !== taskId) })),
+interface WorkspaceStore {
+  workspace: ActiveWorkspace | undefined;
+  setWorkspace: (w: ActiveWorkspace | undefined) => void;
+}
+
+/**
+ * Single client-side source of truth for the currently-opened workspace.
+ *
+ * Persisted to localStorage so reloading the page keeps you inside the
+ * same workspace; cleared via `setWorkspace(undefined)` to bounce back
+ * to the launcher.
+ */
+const STORAGE_KEY = "wrackspurt:active-workspace";
+
+function readInitial(): ActiveWorkspace | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as ActiveWorkspace;
+    if (!parsed?.path || !parsed?.name) return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
+  workspace: readInitial(),
+  setWorkspace: (w) => {
+    if (typeof window !== "undefined") {
+      if (w) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(w));
+      else window.localStorage.removeItem(STORAGE_KEY);
+    }
+    set({ workspace: w });
+  },
 }));

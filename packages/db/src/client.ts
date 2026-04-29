@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { createClient } from "@libsql/client";
@@ -23,12 +24,30 @@ export function createDb(options: CreateDbOptions = {}): Db {
     process.env.WRACKSPURT_DB_URL ??
     `file:${process.env.WRACKSPURT_DB_PATH ?? "./data/wrackspurt.db"}`;
 
+  ensureParentDir(url);
+
   const client = createClient({
     url,
     ...(options.authToken && { authToken: options.authToken }),
   });
 
   return drizzle(client, { schema });
+}
+
+/**
+ * For local `file:` URLs, make sure the parent directory exists; libsql
+ * raises `SQLITE_CANTOPEN` (code 14) instead of creating it.
+ */
+function ensureParentDir(url: string): void {
+  if (!url.startsWith("file:")) return;
+  const filePath = url.slice("file:".length);
+  if (!filePath || filePath === ":memory:") return;
+  const dir = path.dirname(path.resolve(filePath));
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch {
+    // best-effort; client open will surface a clearer error
+  }
 }
 
 /** Run pending migrations. Safe to call repeatedly. */

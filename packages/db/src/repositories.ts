@@ -3,120 +3,180 @@ import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 
 import type { Db } from "./client.js";
-import { chatMessages, notebooks, projects, settings, sources, tasks } from "./schema.js";
+import { chatMessages, settings, skillRuns, workspaces } from "./schema.js";
 
-export class NotebookRepository {
+/* Workspaces ------------------------------------------------------------- */
+
+export interface WorkspaceRow {
+  path: string;
+  name: string;
+  lastOpenedAt: Date;
+}
+
+export class WorkspaceRepository {
   constructor(private readonly db: Db) {}
 
-  async list(projectId: string) {
-    return this.db.select().from(notebooks).where(eq(notebooks.projectId, projectId));
+  async list(): Promise<WorkspaceRow[]> {
+    return this.db.select().from(workspaces).orderBy(desc(workspaces.lastOpenedAt));
   }
 
-  async create(input: { projectId: string; externalNotebookId: string; title: string }) {
-    const id = randomUUID();
-    await this.db.insert(notebooks).values({ id, ...input });
-    return id;
+  async upsert(input: { path: string; name: string }): Promise<void> {
+    await this.db
+      .insert(workspaces)
+      .values({ path: input.path, name: input.name })
+      .onConflictDoUpdate({
+        target: workspaces.path,
+        set: { name: input.name, lastOpenedAt: new Date() },
+      });
+  }
+
+  async touch(path: string): Promise<void> {
+    await this.db
+      .update(workspaces)
+      .set({ lastOpenedAt: new Date() })
+      .where(eq(workspaces.path, path));
+  }
+
+  async delete(path: string): Promise<void> {
+    await this.db.delete(workspaces).where(eq(workspaces.path, path));
   }
 }
 
-export class SourceRepository {
-  constructor(private readonly db: Db) {}
+/* Chat ------------------------------------------------------------------- */
 
-  async list(notebookId: string) {
-    return this.db.select().from(sources).where(eq(sources.notebookId, notebookId));
-  }
-
-  async create(input: {
-    notebookId: string;
-    name: string;
-    type: "file" | "url" | "text" | "youtube" | "drive";
-    externalSourceId?: string;
-  }) {
-    const id = randomUUID();
-    await this.db.insert(sources).values({ id, status: "pending", ...input });
-    return id;
-  }
-
-  async setStatus(id: string, status: "pending" | "syncing" | "ready" | "failed") {
-    await this.db.update(sources).set({ status }).where(eq(sources.id, id));
-  }
+export interface ChatRow {
+  id: string;
+  workspaceId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  metaJson: string | null;
+  createdAt: Date;
 }
 
 export class ChatRepository {
   constructor(private readonly db: Db) {}
 
   async append(input: {
-    notebookId: string;
-    role: "user" | "assistant";
+    workspaceId: string;
+    role: "user" | "assistant" | "system";
     content: string;
-    citations?: unknown;
-  }) {
+    meta?: unknown;
+  }): Promise<string> {
     const id = randomUUID();
     await this.db.insert(chatMessages).values({
       id,
-      notebookId: input.notebookId,
+      workspaceId: input.workspaceId,
       role: input.role,
       content: input.content,
-      citationsJson: input.citations ? JSON.stringify(input.citations) : null,
+      metaJson: input.meta ? JSON.stringify(input.meta) : null,
     });
     return id;
   }
 
-  async listForNotebook(notebookId: string, limit = 200) {
-    return this.db
+  async list(workspaceId: string, limit = 200): Promise<ChatRow[]> {
+    const rows = await this.db
       .select()
       .from(chatMessages)
-      .where(eq(chatMessages.notebookId, notebookId))
+      .where(eq(chatMessages.workspaceId, workspaceId))
       .orderBy(desc(chatMessages.createdAt))
       .limit(limit);
+    // Newest-first from DB; flip so callers get chronological order.
+    return rows.reverse();
+  }
+
+  async clear(workspaceId: string): Promise<void> {
+    await this.db.delete(chatMessages).where(eq(chatMessages.workspaceId, workspaceId));
   }
 }
 
-export class TaskRepository {
+/* Skill runs ------------------------------------------------------------- */
+
+export type SkillRunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface SkillRunRow {
+  id: string;
+  workspaceId: string;
+  skillId: string;
+  prompt: string;
+  constraintsJson: string | null;
+  status: SkillRunStatus;
+  output: string | null;
+  artifactsJson: string | null;
+  error: string | null;
+  createdAt: Date;
+  finishedAt: Date | null;
+}
+
+export class SkillRunRepository {
   constructor(private readonly db: Db) {}
 
   async create(input: {
-    notebookId: string;
-    type: "sync_source" | "ask" | "summarize" | "generate_artifact";
-  }) {
+    workspaceId: string;
+    skillId: string;
+    prompt: string;
+    constraints?: unknown;
+  }): Promise<string> {
     const id = randomUUID();
-    await this.db.insert(tasks).values({ id, status: "queued", ...input });
+    await this.db.insert(skillRuns).values({
+      id,
+      workspaceId: input.workspaceId,
+      skillId: input.skillId,
+      prompt: input.prompt,
+      constraintsJson: input.constraints ? JSON.stringify(input.constraints) : null,
+      status: "pending",
+    });
     return id;
   }
 
   async update(
     id: string,
-    patch: { status?: "queued" | "running" | "completed" | "failed"; result?: unknown; error?: string },
-  ) {
+    patch: Partial<{
+      status: SkillRunStatus;
+      output: string;
+      artifacts: unknown;
+      error: string;
+      finishedAt: Date;
+    }>,
+  ): Promise<void> {
     await this.db
-      .update(tasks)
+      .update(skillRuns)
       .set({
         ...(patch.status && { status: patch.status }),
-        ...(patch.result !== undefined && { resultJson: JSON.stringify(patch.result) }),
+        ...(patch.output !== undefined && { output: patch.output }),
+        ...(patch.artifacts !== undefined && {
+          artifactsJson: JSON.stringify(patch.artifacts),
+        }),
         ...(patch.error !== undefined && { error: patch.error }),
+        ...(patch.finishedAt && { finishedAt: patch.finishedAt }),
       })
-      .where(eq(tasks.id, id));
+      .where(eq(skillRuns.id, id));
   }
 
-  async get(id: string) {
-    const rows = await this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+  async get(id: string): Promise<SkillRunRow | undefined> {
+    const rows = await this.db
+      .select()
+      .from(skillRuns)
+      .where(eq(skillRuns.id, id))
+      .limit(1);
     return rows[0];
   }
-}
 
-export class ProjectRepository {
-  constructor(private readonly db: Db) {}
-
-  async list() {
-    return this.db.select().from(projects);
-  }
-
-  async create(name: string) {
-    const id = randomUUID();
-    await this.db.insert(projects).values({ id, name });
-    return id;
+  async listForWorkspace(workspaceId: string, limit = 50): Promise<SkillRunRow[]> {
+    return this.db
+      .select()
+      .from(skillRuns)
+      .where(eq(skillRuns.workspaceId, workspaceId))
+      .orderBy(desc(skillRuns.createdAt))
+      .limit(limit);
   }
 }
+
+/* Settings --------------------------------------------------------------- */
 
 export interface SettingRow {
   key: string;
@@ -133,7 +193,11 @@ export class SettingsRepository {
   }
 
   async get(key: string): Promise<SettingRow | undefined> {
-    const rows = await this.db.select().from(settings).where(eq(settings.key, key)).limit(1);
+    const rows = await this.db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, key))
+      .limit(1);
     const r = rows[0];
     if (!r) return undefined;
     return { key: r.key, value: r.value, secret: r.secret };

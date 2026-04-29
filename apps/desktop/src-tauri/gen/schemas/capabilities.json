@@ -1,0 +1,1 @@
+{"main":{"identifier":"main","description":"Default capability for the main window. Allows the bundled sidecar (node) to be spawned via tauri-plugin-shell.","local":true,"windows":["main"],"permissions":["core:default",{"identifier":"shell:allow-spawn","allow":[{"args":true,"cmd":"node","name":"node","sidecar":false}]}]}}

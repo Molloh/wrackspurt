@@ -4,9 +4,9 @@
   "version": "0.0.1",
   "identifier": "ai.wrackspurt.desktop",
   "build": {
-    "beforeDevCommand": "pnpm --filter @wrackspurt/web dev",
-    "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "pnpm --filter @wrackspurt/web build",
+    "beforeDevCommand": "node scripts/dev-web.mjs",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node scripts/build-sidecar.mjs",
     "frontendDist": "../web/.next/standalone"
   },
   "app": {
@@ -35,7 +35,8 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "NotebookLM coworker agent",
-    "longDescription": "Wrackspurt is a desktop coworker agent for NotebookLM."
+    "shortDescription": "Workspace AI co-worker",
+    "longDescription": "Wrackspurt is a desktop AI co-worker that operates inside a workspace folder.",
+    "resources": ["../sidecar/**/*"]
   }
 }

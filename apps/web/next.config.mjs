@@ -14,13 +14,13 @@ const nextConfig = {
     "@libsql/isomorphic-fetch",
     "@libsql/isomorphic-ws",
     "execa",
+    "@mariozechner/pi-ai",
+    "@mariozechner/pi-agent-core",
   ],
   transpilePackages: [
     "@wrackspurt/core",
     "@wrackspurt/agent",
     "@wrackspurt/db",
-    "@wrackspurt/notebooklm",
-    "@wrackspurt/models",
   ],
   webpack: (config, { isServer, webpack }) => {
     // Allow TS source imports to use the .js extension (NodeNext-style)
